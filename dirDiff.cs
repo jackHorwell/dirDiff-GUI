@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Threading;
 using System.ComponentModel;
+using Unity;
 
 namespace dirDiff_GUI {
     public partial class dirDiff : Form {
@@ -27,11 +28,22 @@ namespace dirDiff_GUI {
         private DateTime previousTime = DateTime.Now;
         // Determines if a button should say "Select all" or "Deselect all"
         bool allSelected = true;
+        IFileWrapper fileWrapper;
+        FileCommon fileCommon;
 
         public dirDiff() {
             InitializeComponent();
+            var container = new UnityContainer();
+            container.RegisterType<IFileWrapper, FileWrapper>();
+
             synchronizationContext = SynchronizationContext.Current; //context from UI thread
             itemsLbl.Text = "Total items: 0";
+            fileWrapper = container.Resolve<IFileWrapper>();
+            fileCommon = new FileCommon(fileWrapper);
+        }
+
+        public dirDiff(IFileWrapper fileWrapper) {
+            this.fileWrapper = fileWrapper;
         }
 
         public void sharedOrDifference(bool shared) {
@@ -214,13 +226,8 @@ namespace dirDiff_GUI {
             var backgroundTask = new BackgroundWorker();
             backgroundTask.DoWork += (s, f) => {
                 foreach (string file in selected) {
-                    // Checks that the file does not already exists
-                    // Passes directory location then concatenates the file name onto it
-                    // Also passes target directory and concatenates file name
-                    if (!File.Exists($"{moveTo}\\{file}")) {
-                        File.Copy($"{folder1}\\{file}", $"{moveTo}\\{file}");
-                    }
-
+                    fileCommon.ExistsAndCopy(file, moveTo, folder1);
+                    
                     // Works out value of the progress bar
                     current += 1;
                     progress = (int)((float)current / selected.Count * 100);
@@ -237,5 +244,7 @@ namespace dirDiff_GUI {
             progressBar.Value = 0;
             itemsLbl.Text = "Total items: 0";
         }
+
+        
     }
 }
